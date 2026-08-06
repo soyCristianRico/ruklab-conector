@@ -1,0 +1,158 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Ruklab\Connector\Content;
+
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * One kind of content this site holds, and how its fields are named here.
+ *
+ * The point of the indirection is that Ruk Lab speaks one vocabulary —
+ * `title`, `content`, `excerpt`, `slug` — while each site calls those things
+ * whatever its own models call them. Without the map, either every site has to
+ * rename its columns or the platform has to learn eight sets of names.
+ *
+ * It is also the extension point. A site with something of its own worth
+ * editing — a course, a listing, a property — registers it here with the same
+ * shape, and every tool that already exists reaches it. No new code on either
+ * side.
+ */
+final readonly class ContentType
+{
+    /**
+     * Fields Ruk Lab knows how to ask for. A type maps the ones it has and
+     * leaves out the rest; a page with no excerpt simply does not list one.
+     */
+    public const KNOWN_FIELDS = [
+        'title',
+        'content',
+        'excerpt',
+        'slug',
+        'meta_title',
+        'meta_description',
+        'author',
+        'published_at',
+    ];
+
+    /**
+     * @param  class-string<Model>  $model
+     * @param  array<string, string>  $fields  Ruk Lab's name => this site's column.
+     * @param  string|null  $status  Column that says whether it is live, if any.
+     * @param  array<int, string>  $readonly  Mapped fields that must not be written.
+     */
+    public function __construct(
+        public string $model,
+        public string $label,
+        public array $fields,
+        public ?string $status = null,
+        public array $readonly = [],
+    ) {}
+
+    /**
+     * @param  class-string<Model>  $model
+     * @param  array<string, string>  $fields
+     * @param  array<int, string>  $readonly
+     */
+    public static function make(
+        string $model,
+        string $label,
+        array $fields,
+        ?string $status = null,
+        array $readonly = [],
+    ): self {
+        return new self($model, $label, $fields, $status, $readonly);
+    }
+
+    /**
+     * Whether this site actually has the model. A template that ships without
+     * one — no landings, no menus — should report the type as unavailable
+     * rather than fail when someone asks for it.
+     */
+    public function exists(): bool
+    {
+        return class_exists($this->model);
+    }
+
+    /**
+     * The column behind one of Ruk Lab's field names, or null when this type
+     * has no such field.
+     */
+    public function column(string $field): ?string
+    {
+        return $this->fields[$field] ?? null;
+    }
+
+    /**
+     * Fields that can be written: everything mapped, minus what the site
+     * marked read-only, minus anything that is not a field Ruk Lab knows.
+     *
+     * @return array<int, string>
+     */
+    public function writable(): array
+    {
+        $writable = array_intersect(array_keys($this->fields), self::KNOWN_FIELDS);
+
+        return array_values(array_diff($writable, $this->readonly));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function readable(): array
+    {
+        return array_values(array_intersect(array_keys($this->fields), self::KNOWN_FIELDS));
+    }
+
+    public function newModel(): Model
+    {
+        /** @var Model */
+        return new $this->model;
+    }
+
+    /**
+     * Turn a record into Ruk Lab's vocabulary.
+     *
+     * @return array<string, mixed>
+     */
+    public function present(Model $record): array
+    {
+        $presented = ['id' => $record->getKey()];
+
+        foreach ($this->readable() as $field) {
+            $presented[$field] = $record->{$this->fields[$field]};
+        }
+
+        if ($this->status !== null) {
+            $presented['status'] = $record->{$this->status} ? 'published' : 'draft';
+        }
+
+        return $presented;
+    }
+
+    /**
+     * Turn Ruk Lab's vocabulary back into this site's columns.
+     *
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    public function toColumns(array $values): array
+    {
+        $columns = [];
+
+        foreach ($values as $field => $value) {
+            if ($field === 'status' && $this->status !== null) {
+                $columns[$this->status] = $value === 'published';
+
+                continue;
+            }
+
+            if (in_array($field, $this->writable(), true)) {
+                $columns[$this->fields[$field]] = $value;
+            }
+        }
+
+        return $columns;
+    }
+}
