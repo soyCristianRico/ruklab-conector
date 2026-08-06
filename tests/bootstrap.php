@@ -10,3 +10,4 @@ declare(strict_types=1);
  */
 require_once __DIR__.'/../src/Content/ContentType.php';
 require_once __DIR__.'/../src/Support/ConnectorException.php';
+require_once __DIR__.'/../src/Support/Value.php';

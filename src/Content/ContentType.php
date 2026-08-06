@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ruklab\Connector\Content;
 
 use Illuminate\Database\Eloquent\Model;
+use Ruklab\Connector\Support\Value;
 
 /**
  * One kind of content this site holds, and how its fields are named here.
@@ -121,7 +122,7 @@ final readonly class ContentType
         $presented = ['id' => $record->getKey()];
 
         foreach ($this->readable() as $field) {
-            $presented[$field] = $record->{$this->fields[$field]};
+            $presented[$field] = Value::plain($record->{$this->fields[$field]});
         }
 
         if ($this->status !== null) {

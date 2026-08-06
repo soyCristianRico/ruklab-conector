@@ -6,6 +6,7 @@ namespace Ruklab\Connector\Content;
 
 use Illuminate\Database\Eloquent\Model;
 use Ruklab\Connector\Support\ConnectorException;
+use Ruklab\Connector\Support\Value;
 use Ruklab\Connector\Support\Snapshot;
 
 /**
@@ -149,8 +150,7 @@ final readonly class MenuService
         $presented = ['id' => $item->getKey()];
 
         foreach ($this->fields() as $field => $column) {
-            $value = $item->{$column};
-            $presented[$field] = is_scalar($value) || $value === null ? $value : (string) $value;
+            $presented[$field] = Value::plain($item->{$column});
         }
 
         $status = config('ruklab.menus.status');
