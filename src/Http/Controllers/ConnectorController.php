@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Ruklab\Connector\Content\ContentRegistry;
 use Ruklab\Connector\Content\ContentService;
+use Ruklab\Connector\Content\MenuService;
 use Ruklab\Connector\Support\ConnectorException;
 
 /**
@@ -23,6 +24,7 @@ final class ConnectorController
     public function __construct(
         private readonly ContentService $content = new ContentService,
         private readonly ContentRegistry $registry = new ContentRegistry,
+        private readonly MenuService $menus = new MenuService,
     ) {}
 
     /**
@@ -41,7 +43,7 @@ final class ConnectorController
             'site_url' => config('app.url'),
             'writes_enabled' => (bool) config('ruklab.writes_enabled', false),
             'types' => $this->registry->describe(),
-            'menus' => config('ruklab.menus.model') !== null,
+            'menus' => $this->menus->available(),
         ]);
     }
 
@@ -77,6 +79,31 @@ final class ConnectorController
             'id' => $id,
             'snapshots' => $this->content->snapshots($type, $id),
         ]);
+    }
+
+    public function menus(Request $request): JsonResponse
+    {
+        return $this->answer(fn (): array => [
+            'items' => $this->menus->tree($request->query('location')),
+        ]);
+    }
+
+    public function storeMenuItem(Request $request): JsonResponse
+    {
+        return $this->answer(fn (): array => $this->menus->create($request->all()), 201);
+    }
+
+    public function updateMenuItem(Request $request, string $id): JsonResponse
+    {
+        return $this->answer(fn (): array => $this->menus->update($id, $request->all()));
+    }
+
+    public function reorderMenu(Request $request): JsonResponse
+    {
+        return $this->answer(fn (): array => $this->menus->reorder(
+            (array) $request->input('item_ids', []),
+            $request->input('location'),
+        ));
     }
 
     public function rollback(Request $request): JsonResponse

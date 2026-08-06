@@ -22,6 +22,11 @@ Route::prefix('ruklab/v1')
         Route::get('content/{type}/{id}', [ConnectorController::class, 'show']);
         Route::post('content/{type}/{id}', [ConnectorController::class, 'update']);
 
+        Route::get('menus', [ConnectorController::class, 'menus']);
+        Route::post('menu-items', [ConnectorController::class, 'storeMenuItem']);
+        Route::post('menu-items/{id}', [ConnectorController::class, 'updateMenuItem']);
+        Route::post('menus/reorder', [ConnectorController::class, 'reorderMenu']);
+
         Route::get('snapshots/{type}/{id}', [ConnectorController::class, 'snapshots']);
         Route::post('rollback', [ConnectorController::class, 'rollback']);
     });
