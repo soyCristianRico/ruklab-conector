@@ -42,6 +42,7 @@ final readonly class ContentType
      * @param  array<string, string>  $fields  Ruk Lab's name => this site's column.
      * @param  string|null  $status  Column that says whether it is live, if any.
      * @param  array<int, string>  $readonly  Mapped fields that must not be written.
+     * @param  string|null  $url  Path pattern for the public page, `/blog/{slug}`.
      */
     public function __construct(
         public string $model,
@@ -49,6 +50,7 @@ final readonly class ContentType
         public array $fields,
         public ?string $status = null,
         public array $readonly = [],
+        public ?string $url = null,
     ) {}
 
     /**
@@ -62,8 +64,36 @@ final readonly class ContentType
         array $fields,
         ?string $status = null,
         array $readonly = [],
+        ?string $url = null,
     ): self {
-        return new self($model, $label, $fields, $status, $readonly);
+        return new self($model, $label, $fields, $status, $readonly, $url);
+    }
+
+    /**
+     * Where this record lives on the public site.
+     *
+     * Publishing an article has to answer with a link somebody can open — it
+     * is the first thing anyone asks for after "done". The site is the only
+     * one who knows how its own URLs are built, so it says here, once per
+     * type, instead of the platform guessing from a slug.
+     */
+    public function urlFor(Model $record): ?string
+    {
+        if ($this->url === null) {
+            return null;
+        }
+
+        $path = preg_replace_callback(
+            '/\{(\w+)\}/',
+            function (array $matches) use ($record): string {
+                $column = $this->fields[$matches[1]] ?? $matches[1];
+
+                return (string) Value::plain($record->{$column});
+            },
+            $this->url,
+        );
+
+        return rtrim((string) config('app.url'), '/').'/'.ltrim((string) $path, '/');
     }
 
     /**
@@ -127,6 +157,12 @@ final readonly class ContentType
 
         if ($this->status !== null) {
             $presented['status'] = $record->{$this->status} ? 'published' : 'draft';
+        }
+
+        $url = $this->urlFor($record);
+
+        if ($url !== null) {
+            $presented['url'] = $url;
         }
 
         return $presented;

@@ -82,3 +82,31 @@ describe('ContentType', function () {
         });
     });
 });
+
+describe('ContentType urls', function () {
+    it('builds the public link from the pattern the site declared', function () {
+        $tipo = ContentType::make(
+            model: 'App\Models\BlogPost',
+            label: 'Artículos',
+            fields: ['title' => 'title', 'slug' => 'slug'],
+            url: '/blog/{slug}',
+        );
+
+        $registro = new class extends \Illuminate\Database\Eloquent\Model
+        {
+            protected $attributes = ['slug' => 'un-articulo'];
+        };
+
+        expect($tipo->urlFor($registro))->toBe('https://cierzo.test/blog/un-articulo');
+    });
+
+    it('returns nothing when the site did not say how its urls look', function () {
+        $tipo = ContentType::make(
+            model: 'App\Models\BlogPost',
+            label: 'Artículos',
+            fields: ['title' => 'title'],
+        );
+
+        expect($tipo->urlFor(new class extends \Illuminate\Database\Eloquent\Model {}))->toBeNull();
+    });
+});
