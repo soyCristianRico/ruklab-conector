@@ -24,7 +24,25 @@ final readonly class ContentService
 {
     public function __construct(
         private ContentRegistry $registry = new ContentRegistry,
+        private MediaService $media = new MediaService,
     ) {}
+
+    /**
+     * A record in Ruk Lab's vocabulary, with the images it carries.
+     *
+     * Reading has to show them too. Otherwise the only way to know whether an
+     * article already has a hero is to open the site and look, and anything
+     * deciding whether to upload one would be guessing.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentWithMedia(ContentType $type, Model $record): array
+    {
+        $presented = $type->present($record);
+        $images = $this->media->present($type, $record);
+
+        return $images === [] ? $presented : [...$presented, 'images' => $images];
+    }
 
     /**
      * @param  array<string, mixed>  $filters
@@ -58,7 +76,7 @@ final readonly class ContentService
             'total' => $total,
             'page' => $page,
             'per_page' => $perPage,
-            'records' => $records->map(fn (Model $record): array => $type->present($record))->all(),
+            'records' => $records->map(fn (Model $record): array => $this->presentWithMedia($type, $record))->all(),
         ];
     }
 
@@ -69,7 +87,7 @@ final readonly class ContentService
     {
         $type = $this->registry->get($typeName);
 
-        return $type->present($this->find($type, $typeName, $id));
+        return $this->presentWithMedia($type, $this->find($type, $typeName, $id));
     }
 
     /**
@@ -96,7 +114,7 @@ final readonly class ContentService
 
         $record = $type->newModel()->newQuery()->create($columns);
 
-        return $type->present($record);
+        return $this->presentWithMedia($type, $record);
     }
 
     /**
@@ -113,13 +131,13 @@ final readonly class ContentService
 
         $snapshot = Snapshot::take($type->model, $record->getKey(), $record->getOriginal());
 
-        $before = $type->present($record);
+        $before = $this->presentWithMedia($type, $record);
 
         $record->fill($columns)->save();
 
         return [
             'before' => $before,
-            'after' => $type->present($record->refresh()),
+            'after' => $this->presentWithMedia($type, $record->refresh()),
             'changed' => array_keys($columns),
             'snapshot_id' => $snapshot,
         ];

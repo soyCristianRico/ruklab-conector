@@ -21,6 +21,7 @@ Route::prefix('ruklab/v1')
         Route::post('content/{type}', [ConnectorController::class, 'store']);
         Route::get('content/{type}/{id}', [ConnectorController::class, 'show']);
         Route::post('content/{type}/{id}', [ConnectorController::class, 'update']);
+        Route::post('content/{type}/{id}/media', [ConnectorController::class, 'storeMedia']);
 
         Route::get('menus', [ConnectorController::class, 'menus']);
         Route::post('menu-items', [ConnectorController::class, 'storeMenuItem']);

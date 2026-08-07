@@ -8,7 +8,7 @@ use Illuminate\Support\ServiceProvider;
 
 final class ConnectorServiceProvider extends ServiceProvider
 {
-    public const VERSION = '0.2.0';
+    public const VERSION = '0.8.0';
 
     public function register(): void
     {

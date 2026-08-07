@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Ruklab\Connector\Content\ContentRegistry;
 use Ruklab\Connector\Content\ContentService;
+use Ruklab\Connector\Content\MediaService;
 use Ruklab\Connector\Content\MenuService;
 use Ruklab\Connector\Support\ConnectorException;
 
@@ -25,6 +26,7 @@ final class ConnectorController
         private readonly ContentService $content = new ContentService,
         private readonly ContentRegistry $registry = new ContentRegistry,
         private readonly MenuService $menus = new MenuService,
+        private readonly MediaService $media = new MediaService,
     ) {}
 
     /**
@@ -70,6 +72,24 @@ final class ConnectorController
     public function update(Request $request, string $type, string $id): JsonResponse
     {
         return $this->answer(fn (): array => $this->content->update($type, $id, $request->all()));
+    }
+
+    public function storeMedia(Request $request, string $type, string $id): JsonResponse
+    {
+        $file = $request->file('file');
+
+        if (! $file instanceof \Illuminate\Http\UploadedFile) {
+            return response()->json([
+                'message' => 'No ha llegado ningún archivo. Se envía como multipart en el campo «file».',
+            ], 422);
+        }
+
+        return $this->answer(fn (): array => $this->media->attach(
+            $type,
+            $id,
+            (string) ($request->input('name') ?: 'featured'),
+            $file,
+        ));
     }
 
     public function snapshots(string $type, string $id): JsonResponse

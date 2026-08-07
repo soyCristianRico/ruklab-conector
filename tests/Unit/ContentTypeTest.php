@@ -271,3 +271,35 @@ describe('ContentType base url', function () {
         expect($tipo->urlFor($registro))->toBe('https://ruklab.com/blog/un-articulo');
     });
 });
+
+describe('ContentType media', function () {
+    it('carries the map from Ruk Lab names to this site collections', function () {
+        $tipo = tipoArticulo(['model' => ArticuloConFillable::class]);
+
+        expect($tipo->media)->toBe([]);
+
+        $conImagen = ContentType::make(
+            model: ArticuloConFillable::class,
+            label: 'Artículos',
+            fields: ['title' => 'title'],
+            media: ['featured' => 'hero'],
+        );
+
+        expect($conImagen->media)->toBe(['featured' => 'hero']);
+    });
+
+    it('survives config:cache with its images', function () {
+        // Every deployment writes the config out as PHP. An image map that did
+        // not come back would make the site look like it has none.
+        $tipo = ContentType::make(
+            model: 'App\Models\BlogPost',
+            label: 'Artículos',
+            fields: ['title' => 'title'],
+            media: ['featured' => 'hero'],
+        );
+
+        $devuelto = eval('return '.var_export($tipo, true).';');
+
+        expect($devuelto->media)->toBe(['featured' => 'hero']);
+    });
+});

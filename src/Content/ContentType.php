@@ -58,6 +58,7 @@ final readonly class ContentType
      * @param  string|null  $status  Column that says whether it is live, if any.
      * @param  array<int, string>  $readonly  Mapped fields that must not be written.
      * @param  string|null  $url  Path pattern for the public page, `/blog/{slug}`.
+     * @param  array<string, string>  $media  Ruk Lab's name => this site's media collection.
      */
     public function __construct(
         public string $model,
@@ -66,6 +67,7 @@ final readonly class ContentType
         public ?string $status = null,
         public array $readonly = [],
         public ?string $url = null,
+        public array $media = [],
     ) {}
 
     /**
@@ -87,6 +89,7 @@ final readonly class ContentType
             status: $state['status'] ?? null,
             readonly: $state['readonly'] ?? [],
             url: $state['url'] ?? null,
+            media: $state['media'] ?? [],
         );
     }
 
@@ -94,6 +97,7 @@ final readonly class ContentType
      * @param  class-string<Model>  $model
      * @param  array<string, string>  $fields
      * @param  array<int, string>  $readonly
+     * @param  array<string, string>  $media
      */
     public static function make(
         string $model,
@@ -102,8 +106,9 @@ final readonly class ContentType
         ?string $status = null,
         array $readonly = [],
         ?string $url = null,
+        array $media = [],
     ): self {
-        return new self($model, $label, $fields, $status, $readonly, $url);
+        return new self($model, $label, $fields, $status, $readonly, $url, $media);
     }
 
     /**

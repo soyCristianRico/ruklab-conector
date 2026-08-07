@@ -69,6 +69,7 @@ final class ContentRegistry
                 'readable' => $type->readable(),
                 'writable' => $type->writable(),
                 'has_status' => $type->status !== null,
+                'images' => array_keys($type->media),
             ];
         }
 
