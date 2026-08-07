@@ -247,3 +247,27 @@ describe('ContentType::structuredFields', function () {
         expect($tipo->writable())->toBe(['title', 'content']);
     });
 });
+
+describe('ContentType base url', function () {
+    afterEach(fn () => $GLOBALS['ruklab_base_url'] = null);
+
+    it('builds links with the public domain when it differs from the app', function () {
+        // Ruk Lab's own blog is served from ruklab.com while the application
+        // lives on ruklab.app. A link built from the app URL would 404.
+        $GLOBALS['ruklab_base_url'] = 'https://ruklab.com';
+
+        $tipo = ContentType::make(
+            model: 'App\Models\BlogPost',
+            label: 'Artículos',
+            fields: ['slug' => 'slug'],
+            url: '/blog/{slug}',
+        );
+
+        $registro = new class extends Model
+        {
+            protected $attributes = ['slug' => 'un-articulo'];
+        };
+
+        expect($tipo->urlFor($registro))->toBe('https://ruklab.com/blog/un-articulo');
+    });
+});

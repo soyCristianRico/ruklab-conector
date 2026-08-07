@@ -37,6 +37,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Dominio público
+    |--------------------------------------------------------------------------
+    |
+    | Con qué dominio se construyen los enlaces que devuelve el conector.
+    |
+    | Casi siempre es el de la propia aplicación, y entonces esto se deja
+    | vacío. Se rellena cuando las páginas públicas viven en otro sitio —el
+    | blog de Ruk Lab, sin ir más lejos, se sirve desde ruklab.com mientras
+    | que la aplicación está en ruklab.app— porque un enlace construido con
+    | el dominio equivocado es peor que no devolver ninguno.
+    |
+    */
+
+    'base_url' => env('RUKLAB_CONNECTOR_BASE_URL'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Tipos de contenido
     |--------------------------------------------------------------------------
     |

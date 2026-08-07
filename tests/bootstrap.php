@@ -44,7 +44,11 @@ namespace {
      */
     function config(string $key, mixed $default = null): mixed
     {
-        return $key === 'app.url' ? 'https://cierzo.test' : $default;
+        return match ($key) {
+            'app.url' => 'https://cierzo.test',
+            'ruklab.base_url' => $GLOBALS['ruklab_base_url'] ?? null,
+            default => $default,
+        };
     }
 
     require_once __DIR__.'/../src/Support/Value.php';

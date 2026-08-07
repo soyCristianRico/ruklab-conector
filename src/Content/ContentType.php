@@ -130,7 +130,21 @@ final readonly class ContentType
             $this->url,
         );
 
-        return rtrim((string) config('app.url'), '/').'/'.ltrim((string) $path, '/');
+        return rtrim(self::baseUrl(), '/').'/'.ltrim((string) $path, '/');
+    }
+
+    /**
+     * Where this site's public pages live.
+     *
+     * Usually the app's own URL, but not always: Ruk Lab's blog is served from
+     * a different domain than the application, and a link built from the wrong
+     * one is worse than no link at all.
+     */
+    private static function baseUrl(): string
+    {
+        $base = config('ruklab.base_url');
+
+        return is_string($base) && $base !== '' ? $base : (string) config('app.url');
     }
 
     /**
