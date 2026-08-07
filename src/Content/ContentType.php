@@ -162,7 +162,7 @@ final readonly class ContentType
     {
         $writable = array_intersect(array_keys($this->fields), self::KNOWN_FIELDS);
 
-        return array_values(array_diff($writable, $this->readonly));
+        return array_values(array_diff($writable, $this->readonly, $this->structuredFields()));
     }
 
     /**
@@ -203,6 +203,37 @@ final readonly class ContentType
         }
 
         return $presented;
+    }
+
+    /**
+     * Casts that mean a column holds a structure, not text.
+     *
+     * Ruk Lab sends fields as strings. Writing a string into one of these makes
+     * Eloquent encode the string itself — a page built of blocks becomes the
+     * JSON of a paragraph, and the page stops rendering. Reading one is
+     * harmless; writing one is not, so these are read-only whatever the map
+     * says.
+     */
+    private const STRUCTURED_CASTS = '/^(array|json|object|collection|encrypted:(array|object|collection)|Illuminate\\\\Database\\\\Eloquent\\\\Casts\\\\As)/i';
+
+    /**
+     * Mapped fields whose column holds a structure rather than text.
+     *
+     * @return array<int, string>
+     */
+    public function structuredFields(): array
+    {
+        if (! $this->exists()) {
+            return [];
+        }
+
+        $casts = $this->newModel()->getCasts();
+
+        return array_values(array_filter(
+            array_keys($this->fields),
+            fn (string $field): bool => isset($casts[$this->fields[$field]])
+                && preg_match(self::STRUCTURED_CASTS, (string) $casts[$this->fields[$field]]) === 1,
+        ));
     }
 
     /**

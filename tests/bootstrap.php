@@ -17,6 +17,9 @@ namespace Illuminate\Database\Eloquent {
         /** @var array<int, string>|null */
         protected $fillable = null;
 
+        /** @var array<string, string> */
+        protected $casts = [];
+
         public function __get(string $name): mixed
         {
             return $this->attributes[$name] ?? null;
@@ -25,6 +28,12 @@ namespace Illuminate\Database\Eloquent {
         public function isFillable(string $key): bool
         {
             return $this->fillable === null || in_array($key, $this->fillable, true);
+        }
+
+        /** @return array<string, string> */
+        public function getCasts(): array
+        {
+            return $this->casts ?? [];
         }
     }
 }

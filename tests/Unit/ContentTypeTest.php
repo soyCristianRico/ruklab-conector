@@ -15,6 +15,18 @@ class ArticuloConFillable extends Model
     protected $fillable = ['title', 'body', 'is_active'];
 }
 
+/**
+ * A landing whose body is a page builder tree, not text.
+ */
+class LandingConBloques extends Model
+{
+    /** @var array<int, string> */
+    protected $fillable = ['title', 'content'];
+
+    /** @var array<string, string> */
+    protected $casts = ['content' => 'array'];
+}
+
 function tipoArticulo(array $overrides = []): ContentType
 {
     return ContentType::make(
@@ -206,5 +218,32 @@ describe('ContentType::unfillableColumns', function () {
             'title' => 'Hola',
             'meta_title' => 'SEO',
         ])))->toBe(['meta_title']);
+    });
+});
+
+describe('ContentType::structuredFields', function () {
+    it('refuses to write a column that holds a structure', function () {
+        // Ruk Lab sends fields as strings. A landing whose body is an array of
+        // blocks would have the string itself encoded into it, and the page
+        // would stop rendering. Reading it is fine; writing it is not.
+        $tipo = tipoArticulo([
+            'model' => LandingConBloques::class,
+            'fields' => ['title' => 'title', 'content' => 'content'],
+            'status' => null,
+        ]);
+
+        expect($tipo->structuredFields())->toBe(['content']);
+        expect($tipo->writable())->toBe(['title']);
+        expect($tipo->readable())->toContain('content');
+    });
+
+    it('leaves plain columns alone', function () {
+        $tipo = tipoArticulo([
+            'model' => ArticuloConFillable::class,
+            'fields' => ['title' => 'title', 'content' => 'body'],
+        ]);
+
+        expect($tipo->structuredFields())->toBe([]);
+        expect($tipo->writable())->toBe(['title', 'content']);
     });
 });
