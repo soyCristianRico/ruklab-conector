@@ -54,6 +54,28 @@ final readonly class ContentType
     ) {}
 
     /**
+     * Rebuild from `var_export`, which is how `config:cache` stores this.
+     *
+     * Every deployment runs that command, and without this it fails outright:
+     * PHP exports an object as a call to `__set_state` and gives up when the
+     * class has none. A type declared in a config file has to survive being
+     * written out as PHP and read back, and this is the hook that lets it.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    public static function __set_state(array $state): self
+    {
+        return new self(
+            model: $state['model'],
+            label: $state['label'],
+            fields: $state['fields'],
+            status: $state['status'] ?? null,
+            readonly: $state['readonly'] ?? [],
+            url: $state['url'] ?? null,
+        );
+    }
+
+    /**
      * @param  class-string<Model>  $model
      * @param  array<string, string>  $fields
      * @param  array<int, string>  $readonly

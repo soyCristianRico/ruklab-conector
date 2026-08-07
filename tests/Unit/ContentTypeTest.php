@@ -110,3 +110,41 @@ describe('ContentType urls', function () {
         expect($tipo->urlFor(new class extends \Illuminate\Database\Eloquent\Model {}))->toBeNull();
     });
 });
+
+describe('ContentType caching', function () {
+    it('survives being written out as PHP and read back', function () {
+        // `config:cache` runs on every deployment and stores the config with
+        // var_export. Without __set_state that command fails outright, which
+        // means the site cannot be deployed at all.
+        $tipo = ContentType::make(
+            model: 'App\Models\Course',
+            label: 'Cursos',
+            fields: ['title' => 'name', 'content' => 'description'],
+            status: 'is_active',
+            readonly: ['slug'],
+            url: '/cursos/{slug}',
+        );
+
+        $devuelto = eval('return '.var_export($tipo, true).';');
+
+        expect($devuelto)->toBeInstanceOf(ContentType::class);
+        expect($devuelto->model)->toBe('App\Models\Course');
+        expect($devuelto->fields)->toBe(['title' => 'name', 'content' => 'description']);
+        expect($devuelto->status)->toBe('is_active');
+        expect($devuelto->readonly)->toBe(['slug']);
+        expect($devuelto->url)->toBe('/cursos/{slug}');
+    });
+
+    it('survives it with only the fields that are required', function () {
+        $tipo = ContentType::make(
+            model: 'App\Models\Page',
+            label: 'Páginas',
+            fields: ['title' => 'title'],
+        );
+
+        $devuelto = eval('return '.var_export($tipo, true).';');
+
+        expect($devuelto->status)->toBeNull();
+        expect($devuelto->readonly)->toBe([]);
+    });
+});
