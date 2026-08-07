@@ -39,8 +39,8 @@ final readonly class ContentService
             $this->applySearch($query, $type, (string) $filters['search']);
         }
 
-        if (isset($filters['status']) && $type->status !== null) {
-            $query->where($type->status, $filters['status'] === 'published');
+        if (isset($filters['status']) && $filters['status'] !== '' && $type->status !== null) {
+            $query->where($type->status, ContentType::isLive($filters['status']));
         }
 
         $perPage = min(max((int) ($filters['per_page'] ?? 20), 1), 100);
@@ -208,6 +208,12 @@ final readonly class ContentService
 
         if ($columns === []) {
             throw ConnectorException::nothingToChange();
+        }
+
+        $rejected = $type->unfillableColumns($columns);
+
+        if ($rejected !== []) {
+            throw ConnectorException::notFillable($type->model, $rejected);
         }
 
         return $columns;

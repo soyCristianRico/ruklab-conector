@@ -71,6 +71,37 @@ final class ConnectorException extends RuntimeException
         return new self('No se ha indicado ningún campo que cambiar.', 422);
     }
 
+    /**
+     * @param  array<int, string>  $accepted
+     */
+    public static function unknownStatus(string $status, array $accepted): self
+    {
+        return new self(
+            sprintf(
+                'Esta web no entiende el estado «%s». Solo tiene dos: publicado o no. Usa uno de estos: %s.',
+                $status,
+                implode(', ', $accepted),
+            ),
+            422,
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $columns
+     */
+    public static function notFillable(string $model, array $columns): self
+    {
+        return new self(
+            sprintf(
+                'El modelo %s no acepta escribir en %s. Está declarado en config/ruklab.php pero falta en su $fillable, '
+                .'así que el cambio se habría descartado sin avisar.',
+                class_basename($model),
+                implode(', ', $columns),
+            ),
+            500,
+        );
+    }
+
     public static function menusUnavailable(): self
     {
         return new self(

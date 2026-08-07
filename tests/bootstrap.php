@@ -14,9 +14,17 @@ namespace Illuminate\Database\Eloquent {
         /** @var array<string, mixed> */
         protected $attributes = [];
 
+        /** @var array<int, string>|null */
+        protected $fillable = null;
+
         public function __get(string $name): mixed
         {
             return $this->attributes[$name] ?? null;
+        }
+
+        public function isFillable(string $key): bool
+        {
+            return $this->fillable === null || in_array($key, $this->fillable, true);
         }
     }
 }

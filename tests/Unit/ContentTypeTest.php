@@ -2,7 +2,18 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Model;
 use Ruklab\Connector\Content\ContentType;
+use Ruklab\Connector\Support\ConnectorException;
+
+/**
+ * A model that lists what it will accept, the way every site's models do.
+ */
+class ArticuloConFillable extends Model
+{
+    /** @var array<int, string> */
+    protected $fillable = ['title', 'body', 'is_active'];
+}
 
 function tipoArticulo(array $overrides = []): ContentType
 {
@@ -60,6 +71,25 @@ describe('ContentType', function () {
         it('maps the status onto whatever column says it is live', function () {
             expect(tipoArticulo()->toColumns(['status' => 'published']))->toBe(['is_active' => true]);
             expect(tipoArticulo()->toColumns(['status' => 'draft']))->toBe(['is_active' => false]);
+        });
+
+        it('publishes when asked to publish, whichever of the two words is used', function () {
+            // `publish` is the word Ruk Lab's own tool documents, and it used
+            // to fall through the === 'published' comparison and unpublish the
+            // record. Asking to publish took the page down.
+            expect(tipoArticulo()->toColumns(['status' => 'publish']))->toBe(['is_active' => true]);
+            expect(tipoArticulo()->toColumns(['status' => 'PUBLISH']))->toBe(['is_active' => true]);
+            expect(tipoArticulo()->toColumns(['status' => true]))->toBe(['is_active' => true]);
+        });
+
+        it('refuses a status this site has nowhere to put', function () {
+            // A WordPress has five. Reading `pending` as "not published" would
+            // take a live page down on the way to doing something else.
+            expect(fn () => tipoArticulo()->toColumns(['status' => 'pending']))
+                ->toThrow(ConnectorException::class, 'pending');
+
+            expect(fn () => tipoArticulo()->toColumns(['status' => 'future']))
+                ->toThrow(ConnectorException::class);
         });
 
         it('drops a field that is not writable instead of passing it through', function () {
@@ -146,5 +176,35 @@ describe('ContentType caching', function () {
 
         expect($devuelto->status)->toBeNull();
         expect($devuelto->readonly)->toBe([]);
+    });
+});
+
+describe('ContentType::unfillableColumns', function () {
+    it('says nothing when the model accepts every mapped column', function () {
+        $tipo = tipoArticulo([
+            'model' => ArticuloConFillable::class,
+            'fields' => ['title' => 'title', 'content' => 'body'],
+        ]);
+
+        expect($tipo->unfillableColumns($tipo->toColumns([
+            'title' => 'Hola',
+            'content' => 'Texto',
+            'status' => 'publish',
+        ])))->toBe([]);
+    });
+
+    it('names a mapped column the model will not accept', function () {
+        // Declaring a field in config/ruklab.php and forgetting it in the
+        // model's $fillable answers 200, reports the field as changed, and
+        // changes nothing. It has to be loud.
+        $tipo = tipoArticulo([
+            'model' => ArticuloConFillable::class,
+            'fields' => ['title' => 'title', 'meta_title' => 'meta_title'],
+        ]);
+
+        expect($tipo->unfillableColumns($tipo->toColumns([
+            'title' => 'Hola',
+            'meta_title' => 'SEO',
+        ])))->toBe(['meta_title']);
     });
 });

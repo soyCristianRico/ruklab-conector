@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ruklab\Connector\Content;
 
 use Illuminate\Database\Eloquent\Model;
+use Ruklab\Connector\Support\ConnectorException;
 use Ruklab\Connector\Support\Value;
 
 /**
@@ -36,6 +37,20 @@ final readonly class ContentType
         'author',
         'published_at',
     ];
+
+    /**
+     * A site of ours has two states, live or not, held in one boolean column.
+     * Ruk Lab speaks WordPress' vocabulary, which has five words for this and
+     * spells the first one `publish`, so the words have to be met halfway.
+     *
+     * What is not here is refused rather than guessed. `pending`, `private` and
+     * `future` mean something on a WordPress that has nowhere to land here, and
+     * reading them as "not published" would take a page down on the way to
+     * doing something else entirely.
+     */
+    private const LIVE_WORDS = ['publish', 'published', 'live', 'active', 'visible'];
+
+    private const NOT_LIVE_WORDS = ['draft', 'unpublished', 'inactive', 'hidden'];
 
     /**
      * @param  class-string<Model>  $model
@@ -191,6 +206,53 @@ final readonly class ContentType
     }
 
     /**
+     * Which of these columns the model will not accept.
+     *
+     * `fill()` drops a column missing from a model's `$fillable` and says
+     * nothing about it. A type that maps such a column would answer 200, report
+     * the field as changed, and have changed nothing — the worst shape a
+     * failure can take, because it looks like success on both ends.
+     *
+     * @param  array<string, mixed>  $columns
+     * @return array<int, string>
+     */
+    public function unfillableColumns(array $columns): array
+    {
+        $model = $this->newModel();
+
+        return array_values(array_filter(
+            array_keys($columns),
+            fn (string $column): bool => ! $model->isFillable($column),
+        ));
+    }
+
+    /**
+     * Read a status as live or not live, or refuse it.
+     *
+     * The comparison used to be `$value === 'published'`, which meant every
+     * other word — `publish` among them, the one Ruk Lab's own tool documents —
+     * quietly took the record offline. Asking to publish unpublished.
+     */
+    public static function isLive(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $word = mb_strtolower(trim((string) $value));
+
+        if (in_array($word, self::LIVE_WORDS, true) || $word === '1') {
+            return true;
+        }
+
+        if (in_array($word, self::NOT_LIVE_WORDS, true) || $word === '0') {
+            return false;
+        }
+
+        throw ConnectorException::unknownStatus($word, [...self::LIVE_WORDS, ...self::NOT_LIVE_WORDS]);
+    }
+
+    /**
      * Turn Ruk Lab's vocabulary back into this site's columns.
      *
      * @param  array<string, mixed>  $values
@@ -202,7 +264,7 @@ final readonly class ContentType
 
         foreach ($values as $field => $value) {
             if ($field === 'status' && $this->status !== null) {
-                $columns[$this->status] = $value === 'published';
+                $columns[$this->status] = self::isLive($value);
 
                 continue;
             }
