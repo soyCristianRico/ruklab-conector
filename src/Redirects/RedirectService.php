@@ -49,7 +49,7 @@ final readonly class RedirectService
 
         $code = RedirectRules::code($code);
         $source = RedirectRules::source($from, $this->host());
-        $target = RedirectRules::target($to, $code, $this->host());
+        $target = RedirectRules::target($to, $code);
 
         RedirectRules::guardConflicts($source, $target, $this->all());
 
@@ -97,7 +97,7 @@ final readonly class RedirectService
         }
 
         if (($values['to'] ?? null) !== null) {
-            $target = RedirectRules::target((string) $values['to'], $code, $this->host());
+            $target = RedirectRules::target((string) $values['to'], $code);
 
             RedirectRules::guardConflicts($before['from'], $target, $this->all(), (int) $redirect->getKey());
 
@@ -109,6 +109,30 @@ final readonly class RedirectService
             throw new ConnectorException(
                 'No has mandado nada que cambiar. Se puede cambiar «to», «code» y «status».',
                 422,
+            );
+        }
+
+        // What arrived and what is already stored are not the same question. A
+        // field sent with the value it already holds is not a change, and
+        // reporting it as one says the site was edited when it was not — worse
+        // than a refusal, because whoever reads it stops looking.
+        $asked = array_keys($changes);
+        $changes = array_diff_assoc($changes, array_intersect_key($before, $changes));
+
+        if ($changes === []) {
+            throw new ConnectorException(
+                sprintf(
+                    'Esta redirección ya está así, o sea que no hay nada que cambiar: %s. No se ha tocado nada.',
+                    implode(', ', array_map(
+                        fn (string $field): string => sprintf(
+                            '%s = %s',
+                            $field,
+                            (string) $before[$field] === '' ? '(vacío)' : (string) $before[$field],
+                        ),
+                        $asked,
+                    )),
+                ),
+                409,
             );
         }
 

@@ -39,22 +39,29 @@ describe('RedirectRules', function () {
 
     describe('target', function () {
         it('allows a target on another domain, which is a real move', function () {
-            expect(RedirectRules::target('https://otra-web.com/nuevo', 301, 'cierzo.test'))
+            expect(RedirectRules::target('https://otra-web.com/nuevo', 301))
                 ->toBe('https://otra-web.com/nuevo');
         });
 
-        it('reduces a target on this site to its path', function () {
-            expect(RedirectRules::target('https://cierzo.test/nuevo/', 301, 'cierzo.test'))->toBe('/nuevo');
+        it('stores the destination exactly as it arrived', function () {
+            // Tidied the way a source is, a trailing slash was stripped off
+            // the destination — and on a site whose canonical URLs carry one,
+            // that is not the page but the redirect to it. Every rule written
+            // that way cost a second hop that no check here could see, because
+            // the hop belongs to the site's routing and not to this table.
+            expect(RedirectRules::target('/nuevo/', 301))->toBe('/nuevo/');
+            expect(RedirectRules::target('/nuevo', 301))->toBe('/nuevo');
+            expect(RedirectRules::target('https://cierzo.test/nuevo/', 301))->toBe('https://cierzo.test/nuevo/');
         });
 
         it('takes no destination for a 410, and drops one that arrives anyway', function () {
             // Stored beside a 410 it would never be used, which reads later as
             // a redirect that mysteriously does not redirect.
-            expect(RedirectRules::target('/algo', 410, 'cierzo.test'))->toBe('');
+            expect(RedirectRules::target('/algo', 410))->toBe('');
         });
 
         it('asks for a destination when the code needs one', function () {
-            expect(fn () => RedirectRules::target('', 301, 'cierzo.test'))
+            expect(fn () => RedirectRules::target('', 301))
                 ->toThrow(ConnectorException::class, '410');
         });
     });

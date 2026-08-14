@@ -84,8 +84,20 @@ final class RedirectRules
     /**
      * A target may be a path here or a URL elsewhere — moving a page to
      * another domain is a real thing people do.
+     *
+     * Stored as it arrived, give or take the whitespace. Tidied the way a
+     * source is, this produced the very thing the chain check exists to
+     * prevent: on a site whose canonical URLs carry a trailing slash,
+     * `/una-pagina` is not the page but the redirect to it, so every rule
+     * written that way cost a second hop that nothing here could see — the hop
+     * belongs to the site's own routing, not to a rule in this table.
+     *
+     * A source and a target are normalised for different reasons and must not
+     * share a function. A source is tidied to be *compared*, so two spellings
+     * of one origin collide. A target is stored to be *served*, and the only
+     * spelling that serves in one hop is the one the site actually publishes.
      */
-    public static function target(string $to, int $code, string $siteHost): string
+    public static function target(string $to, int $code): string
     {
         $to = trim($to);
 
@@ -106,17 +118,7 @@ final class RedirectRules
             );
         }
 
-        if (preg_match('#^https?://#i', $to) === 1) {
-            $host = (string) parse_url($to, PHP_URL_HOST);
-
-            if (! self::sameHost($host, $siteHost)) {
-                return $to;
-            }
-
-            $to = self::pathOf($to);
-        }
-
-        return self::tidy($to);
+        return $to;
     }
 
     /**
