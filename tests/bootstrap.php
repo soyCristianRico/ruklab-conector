@@ -54,4 +54,5 @@ namespace {
     require_once __DIR__.'/../src/Support/Value.php';
     require_once __DIR__.'/../src/Support/ConnectorException.php';
     require_once __DIR__.'/../src/Content/ContentType.php';
+    require_once __DIR__.'/../src/Redirects/RedirectRules.php';
 }

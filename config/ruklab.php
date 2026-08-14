@@ -139,6 +139,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Redirecciones
+    |--------------------------------------------------------------------------
+    |
+    | En WordPress las redirecciones son siempre de algún plugin y el conector
+    | se limita a manejar el que ya haya. Aquí no hay ninguno que manejar, así
+    | que el conector trae la tabla y el middleware que la sirve.
+    |
+    | El middleware solo actúa sobre un 404, nunca antes: una regla guardada no
+    | puede tapar una página que esta web sí sirve. Se desactiva en una web que
+    | prefiera gestionarlas por su cuenta —en el servidor, o con sus propias
+    | rutas— y entonces el conector responde que no las lleva, en vez de
+    | competir con lo que ya hay.
+    |
+    */
+
+    'redirects' => [
+        'enabled' => env('RUKLAB_CONNECTOR_REDIRECTS', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Copias de seguridad
     |--------------------------------------------------------------------------
     |

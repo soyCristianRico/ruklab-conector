@@ -10,6 +10,7 @@ use Ruklab\Connector\Content\ContentRegistry;
 use Ruklab\Connector\Content\ContentService;
 use Ruklab\Connector\Content\MediaService;
 use Ruklab\Connector\Content\MenuService;
+use Ruklab\Connector\Redirects\RedirectService;
 use Ruklab\Connector\Support\ConnectorException;
 
 /**
@@ -27,6 +28,7 @@ final class ConnectorController
         private readonly ContentRegistry $registry = new ContentRegistry,
         private readonly MenuService $menus = new MenuService,
         private readonly MediaService $media = new MediaService,
+        private readonly RedirectService $redirects = new RedirectService,
     ) {}
 
     /**
@@ -46,6 +48,8 @@ final class ConnectorController
             'writes_enabled' => (bool) config('ruklab.writes_enabled', false),
             'types' => $this->registry->describe(),
             'menus' => $this->menus->available(),
+            'redirects' => $this->redirects->available(),
+            'redirects_manager' => $this->redirects->available() ? 'ruklab' : null,
         ]);
     }
 
@@ -124,6 +128,32 @@ final class ConnectorController
             (array) $request->input('item_ids', []),
             $request->input('location'),
         ));
+    }
+
+    public function redirects(Request $request): JsonResponse
+    {
+        return $this->answer(fn (): array => [
+            'manager' => 'ruklab',
+            'redirects' => $this->redirects->all($request->query('search')),
+        ]);
+    }
+
+    public function storeRedirect(Request $request): JsonResponse
+    {
+        return $this->answer(fn (): array => $this->redirects->create(
+            (string) $request->input('from'),
+            (string) $request->input('to'),
+            $request->input('code', 301),
+        ), 201);
+    }
+
+    public function updateRedirect(Request $request, string $id): JsonResponse
+    {
+        return $this->answer(fn (): array => $this->redirects->update($id, [
+            'to' => $request->input('to'),
+            'code' => $request->input('code'),
+            'status' => $request->input('status'),
+        ]));
     }
 
     public function rollback(Request $request): JsonResponse

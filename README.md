@@ -31,10 +31,42 @@ no por defecto.
 | `POST /ruklab/v1/content/{tipo}` | Crear — es lo que usa la publicación de artículos |
 | `GET /ruklab/v1/content/{tipo}/{id}` | Un registro |
 | `POST /ruklab/v1/content/{tipo}/{id}` | Cambiar campos |
+| `GET /ruklab/v1/redirects` | Las redirecciones de esta web |
+| `POST /ruklab/v1/redirects` | Crear una |
+| `POST /ruklab/v1/redirects/{id}` | Cambiar destino, código o estado |
 | `GET /ruklab/v1/snapshots/{tipo}/{id}` | Copias guardadas |
 | `POST /ruklab/v1/rollback` | Restaurar una copia |
 
 No hay ninguna ruta que borre, y no la habrá.
+
+## Redirecciones
+
+En WordPress son siempre de algún plugin —Rank Math, Redirection— y allí el
+conector se limita a manejar el que ya haya. Aquí no hay ninguno que manejar,
+así que este paquete trae la tabla y el middleware que la sirve.
+
+El middleware actúa **solo sobre un 404**, nunca antes. Una regla guardada no
+puede tapar una página que esta web sí sirve: si alguien redirige una URL que
+todavía funciona, la regla se queda ahí sin hacer nada hasta que la página
+desaparece, que es el orden inofensivo.
+
+Se refusan, con el motivo escrito, tres cosas que son siempre un error: una
+redirección a sí misma, un segundo origen igual a uno que ya existe, y una
+cadena —apuntar a una URL que a su vez redirige—. La última es la que más pasa,
+porque quien añade la segunda no está mirando la primera.
+
+Una redirección no se borra, se pone en `inactive`. Un 301 lo cachean el
+navegador y Google, y quitar la fila no descachea nada; dejarla es lo que
+permite ver después por qué una URL dejó de redirigir.
+
+Para una web que las gestione por su cuenta —en el servidor, o con sus propias
+rutas—:
+
+```
+RUKLAB_CONNECTOR_REDIRECTS=false
+```
+
+y el conector responde que no las lleva en vez de competir con lo que ya hay.
 
 ## Añadir un tipo propio
 

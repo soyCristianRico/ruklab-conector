@@ -28,6 +28,10 @@ Route::prefix('ruklab/v1')
         Route::post('menu-items/{id}', [ConnectorController::class, 'updateMenuItem']);
         Route::post('menus/reorder', [ConnectorController::class, 'reorderMenu']);
 
+        Route::get('redirects', [ConnectorController::class, 'redirects']);
+        Route::post('redirects', [ConnectorController::class, 'storeRedirect']);
+        Route::post('redirects/{id}', [ConnectorController::class, 'updateRedirect']);
+
         Route::get('snapshots/{type}/{id}', [ConnectorController::class, 'snapshots']);
         Route::post('rollback', [ConnectorController::class, 'rollback']);
     });
