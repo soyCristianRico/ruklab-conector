@@ -103,7 +103,7 @@ final readonly class ContentService
         $this->requireWrites();
 
         $type = $this->registry->get($typeName);
-        $columns = $this->columnsFor($type, $values);
+        $columns = $this->columnsFor($type, $values, requireExtra: true);
 
         // A new record with no status column is live the moment it is saved.
         // One that has a status starts as a draft unless asked otherwise, so
@@ -197,7 +197,10 @@ final readonly class ContentService
      */
     private function restorable(ContentType $type, array $values): array
     {
-        $allowed = array_values($type->fields);
+        $allowed = [
+            ...array_values($type->fields),
+            ...array_map(fn (ExtraField $field): string => $field->column, array_values($type->extra)),
+        ];
 
         if ($type->status !== null) {
             $allowed[] = $type->status;
@@ -207,13 +210,23 @@ final readonly class ContentService
     }
 
     /**
+     * `requireExtra` is only true on create: a new record with a required
+     * extra field has to be given one, but a partial update is allowed to
+     * leave it as it is.
+     *
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
-    private function columnsFor(ContentType $type, array $values): array
+    private function columnsFor(ContentType $type, array $values, bool $requireExtra = false): array
     {
+        $meta = is_array($values['meta'] ?? null) ? $values['meta'] : [];
+
         foreach (array_keys($values) as $field) {
             if ($field === 'status' && $type->status !== null) {
+                continue;
+            }
+
+            if ($field === 'meta') {
                 continue;
             }
 
@@ -222,7 +235,15 @@ final readonly class ContentService
             }
         }
 
-        $columns = $type->toColumns($values);
+        if ($requireExtra) {
+            $missing = $type->missingRequiredExtra(array_keys($meta));
+
+            if ($missing !== []) {
+                throw ConnectorException::missingRequiredFields($missing);
+            }
+        }
+
+        $columns = [...$type->toColumns($values), ...$type->extraColumns($meta)];
 
         if ($columns === []) {
             throw ConnectorException::nothingToChange();

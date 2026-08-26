@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
 use Ruklab\Connector\Content\ContentType;
+use Ruklab\Connector\Content\ExtraField;
+use Ruklab\Connector\Content\ExtraFieldType;
 use Ruklab\Connector\Support\ConnectorException;
 
 /**
@@ -301,5 +303,130 @@ describe('ContentType media', function () {
         $devuelto = eval('return '.var_export($tipo, true).';');
 
         expect($devuelto->media)->toBe(['featured' => 'hero']);
+    });
+});
+
+/**
+ * A news item, with fields no other type has: an area, and a source. Neither
+ * fits Ruk Lab's fixed vocabulary, which is exactly why `extra` exists.
+ *
+ * Relation resolution needs a real Eloquent model with a database behind it,
+ * which this suite deliberately does not have — the stub `Model` here only
+ * reads attributes, it has no `query()`. That half is exercised where it
+ * means something: inside a real site. What is tested here is everything
+ * `ContentType` does on its own: which extra fields are known, which are
+ * required, and how a non-relation value is coerced.
+ */
+function tipoNoticia(array $overrides = []): ContentType
+{
+    return ContentType::make(
+        model: $overrides['model'] ?? 'App\Models\News',
+        label: 'Noticias',
+        fields: ['title' => 'title', 'content' => 'body', 'slug' => 'slug'],
+        readonly: ['slug'],
+        extra: $overrides['extra'] ?? [
+            'source_name' => ExtraField::text(column: 'source_name', label: 'Fuente', required: true),
+            'source_url' => ExtraField::url(column: 'source_url', label: 'URL de la fuente', required: true),
+            'featured' => ExtraField::boolean(column: 'is_featured', label: 'Destacada'),
+            'priority' => ExtraField::number(column: 'priority', label: 'Prioridad'),
+        ],
+    );
+}
+
+describe('ContentType extra fields', function () {
+    describe('readableExtra', function () {
+        it('lists the names of the extra fields, not their columns', function () {
+            expect(tipoNoticia()->readableExtra())
+                ->toBe(['source_name', 'source_url', 'featured', 'priority']);
+        });
+
+        it('is empty for a type with none', function () {
+            expect(tipoArticulo()->readableExtra())->toBe([]);
+        });
+    });
+
+    describe('requiredExtraFields / missingRequiredExtra', function () {
+        it('lists only the extra fields marked required', function () {
+            expect(tipoNoticia()->requiredExtraFields())->toBe(['source_name', 'source_url']);
+        });
+
+        it('names what is missing from what was given', function () {
+            expect(tipoNoticia()->missingRequiredExtra(['source_name']))->toBe(['source_url']);
+            expect(tipoNoticia()->missingRequiredExtra(['source_name', 'source_url']))->toBe([]);
+        });
+
+        it('has nothing missing when the type has no required extra fields', function () {
+            expect(tipoArticulo()->missingRequiredExtra([]))->toBe([]);
+        });
+    });
+
+    describe('extraColumns', function () {
+        it('maps a field name given under meta to its column', function () {
+            expect(tipoNoticia()->extraColumns(['source_name' => 'El Periódico']))
+                ->toBe(['source_name' => 'El Periódico']);
+        });
+
+        it('coerces a boolean field regardless of how it arrives', function () {
+            expect(tipoNoticia()->extraColumns(['featured' => '1']))->toBe(['is_featured' => true]);
+            expect(tipoNoticia()->extraColumns(['featured' => 0]))->toBe(['is_featured' => false]);
+        });
+
+        it('coerces a number field to an actual number', function () {
+            expect(tipoNoticia()->extraColumns(['priority' => '3']))->toBe(['priority' => 3]);
+        });
+
+        it('refuses a name this type does not have under extra', function () {
+            expect(fn () => tipoNoticia()->extraColumns(['inventado' => 'x']))
+                ->toThrow(ConnectorException::class, 'inventado');
+        });
+    });
+
+    describe('present with extra fields', function () {
+        it('nests them under meta, by their Ruk Lab name', function () {
+            $tipo = tipoNoticia(['extra' => [
+                'source_name' => ExtraField::text(column: 'source_name', label: 'Fuente', required: true),
+            ]]);
+
+            $registro = new class extends Model
+            {
+                protected $attributes = ['title' => 'Ha pasado algo', 'source_name' => 'El Periódico'];
+            };
+
+            expect($tipo->present($registro))->toHaveKey('meta', ['source_name' => 'El Periódico']);
+        });
+
+        it('does not add a meta key for a type with no extra fields', function () {
+            expect(tipoArticulo()->present(new class extends Model
+            {
+                protected $attributes = ['title' => 'Hola'];
+            }))->not->toHaveKey('meta');
+        });
+    });
+
+    describe('caching', function () {
+        it('survives config:cache with its extra fields', function () {
+            $tipo = ContentType::make(
+                model: 'App\Models\News',
+                label: 'Noticias',
+                fields: ['title' => 'title'],
+                extra: [
+                    'source_name' => ExtraField::text(column: 'source_name', label: 'Fuente', required: true),
+                    'category' => ExtraField::relation(
+                        column: 'category_id',
+                        label: 'Área',
+                        relatedModel: 'App\Models\Category',
+                        matchColumn: 'name',
+                    ),
+                ],
+            );
+
+            $devuelto = eval('return '.var_export($tipo, true).';');
+
+            expect($devuelto->extra['source_name'])->toBeInstanceOf(ExtraField::class);
+            expect($devuelto->extra['source_name']->required)->toBeTrue();
+            expect($devuelto->extra['category']->type)->toBe(ExtraFieldType::Relation);
+            expect($devuelto->extra['category']->relatedModel)->toBe('App\Models\Category');
+            expect($devuelto->extra['category']->matchColumn)->toBe('name');
+        });
     });
 });

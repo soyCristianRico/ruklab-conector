@@ -94,6 +94,50 @@ lleguen a él, sin tocar ni esta web ni la plataforma:
 `readonly` sirve para lo que Ruk Lab debe poder leer pero no cambiar: un slug
 del que cuelgan enlaces, un precio que decide otro sistema.
 
+## Campos propios de un tipo
+
+`fields` es el vocabulario fijo de Ruk Lab —`title`, `content`, `slug`...—, y
+un tipo puede tener más cosas que eso: una noticia tiene fuente, un curso
+tiene precio. Esos se declaran en `extra`, y viajan bajo `meta` en vez de en el
+nivel de arriba:
+
+​```php
+'noticias' => ContentType::make(
+    model: \App\Models\News::class,
+    label: 'Noticias',
+    fields: [
+        'title' => 'title',
+        'content' => 'body',
+        'slug' => 'slug',
+    ],
+    readonly: ['slug'],
+    extra: [
+        'category' => ExtraField::relation(
+            column: 'category_id',
+            label: 'Área',
+            relatedModel: \App\Models\Category::class,
+            matchColumn: 'name',
+            required: true,
+        ),
+        'source_name' => ExtraField::text(column: 'source_name', label: 'Fuente', required: true),
+        'source_url' => ExtraField::url(column: 'source_url', label: 'URL de la fuente', required: true),
+    ],
+),
+​```
+
+Un `relation` nunca viaja como el id interno de esta web —ese número no
+significa nada fuera de ella—: se manda y se devuelve por el valor de
+`matchColumn` (el nombre de la categoría, no su id), resuelto al escribir y
+buscado al leer. Un valor que no coincide con nada se rechaza por su nombre,
+igual que un estado que esta web no reconoce.
+
+Un campo `required` solo se exige al crear. Una actualización parcial puede
+dejarlo como está.
+
+`GET /ruklab/v1/info` describe estos campos por tipo —nombre, etiqueta, tipo,
+si es obligatorio y, para un `select` o un `relation`, las opciones
+disponibles— para que quien llama sepa qué puede mandar antes de intentarlo.
+
 ## Tests
 
 ```bash

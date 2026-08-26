@@ -25,6 +25,11 @@ namespace Illuminate\Database\Eloquent {
             return $this->attributes[$name] ?? null;
         }
 
+        public function getKey(): mixed
+        {
+            return $this->attributes['id'] ?? null;
+        }
+
         public function isFillable(string $key): bool
         {
             return $this->fillable === null || in_array($key, $this->fillable, true);
@@ -53,6 +58,8 @@ namespace {
 
     require_once __DIR__.'/../src/Support/Value.php';
     require_once __DIR__.'/../src/Support/ConnectorException.php';
+    require_once __DIR__.'/../src/Content/ExtraFieldType.php';
+    require_once __DIR__.'/../src/Content/ExtraField.php';
     require_once __DIR__.'/../src/Content/ContentType.php';
     require_once __DIR__.'/../src/Redirects/RedirectRules.php';
 }

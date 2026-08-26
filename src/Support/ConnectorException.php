@@ -102,6 +102,29 @@ final class ConnectorException extends RuntimeException
         );
     }
 
+    /**
+     * A relation field's value did not match anything on this site — a
+     * category typed slightly wrong, or one that does not exist.
+     */
+    public static function unknownRelationValue(string $field, string $value): self
+    {
+        return new self(
+            sprintf('No existe ningún «%s» llamado «%s» en esta web.', $field, $value),
+            422,
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $missing
+     */
+    public static function missingRequiredFields(array $missing): self
+    {
+        return new self(
+            sprintf('Faltan campos obligatorios para crear esto: %s.', implode(', ', $missing)),
+            422,
+        );
+    }
+
     public static function menusUnavailable(): self
     {
         return new self(

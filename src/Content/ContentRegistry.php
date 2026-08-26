@@ -70,9 +70,57 @@ final class ContentRegistry
                 'writable' => $type->writable(),
                 'has_status' => $type->status !== null,
                 'images' => array_keys($type->media),
+                'fields' => $this->describeExtra($type),
             ];
         }
 
         return $described;
+    }
+
+    /**
+     * This type's own fields, beyond Ruk Lab's fixed vocabulary — what to
+     * call them, what kind of value they hold, and whether they are required.
+     * A relation's options are looked up fresh here rather than stored on the
+     * type, so a category added after the site was deployed still shows up.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function describeExtra(ContentType $type): array
+    {
+        $described = [];
+
+        foreach ($type->extra as $name => $field) {
+            $entry = [
+                'label' => $field->label,
+                'type' => $field->type->value,
+                'required' => $field->required,
+            ];
+
+            $options = $this->optionsFor($field);
+
+            if ($options !== []) {
+                $entry['options'] = $options;
+            }
+
+            $described[$name] = $entry;
+        }
+
+        return $described;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function optionsFor(ExtraField $field): array
+    {
+        if ($field->type === ExtraFieldType::Select) {
+            return $field->options;
+        }
+
+        if ($field->type === ExtraFieldType::Relation && $field->relatedModel !== null && $field->matchColumn !== null) {
+            return $field->relatedModel::query()->limit(50)->pluck($field->matchColumn)->all();
+        }
+
+        return [];
     }
 }

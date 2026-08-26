@@ -59,6 +59,7 @@ final readonly class ContentType
      * @param  array<int, string>  $readonly  Mapped fields that must not be written.
      * @param  string|null  $url  Path pattern for the public page, `/blog/{slug}`.
      * @param  array<string, string>  $media  Ruk Lab's name => this site's media collection.
+     * @param  array<string, ExtraField>  $extra  This site's own fields, outside the fixed vocabulary.
      */
     public function __construct(
         public string $model,
@@ -68,6 +69,7 @@ final readonly class ContentType
         public array $readonly = [],
         public ?string $url = null,
         public array $media = [],
+        public array $extra = [],
     ) {}
 
     /**
@@ -90,6 +92,7 @@ final readonly class ContentType
             readonly: $state['readonly'] ?? [],
             url: $state['url'] ?? null,
             media: $state['media'] ?? [],
+            extra: $state['extra'] ?? [],
         );
     }
 
@@ -98,6 +101,7 @@ final readonly class ContentType
      * @param  array<string, string>  $fields
      * @param  array<int, string>  $readonly
      * @param  array<string, string>  $media
+     * @param  array<string, ExtraField>  $extra
      */
     public static function make(
         string $model,
@@ -107,8 +111,9 @@ final readonly class ContentType
         array $readonly = [],
         ?string $url = null,
         array $media = [],
+        array $extra = [],
     ): self {
-        return new self($model, $label, $fields, $status, $readonly, $url, $media);
+        return new self($model, $label, $fields, $status, $readonly, $url, $media, $extra);
     }
 
     /**
@@ -211,6 +216,10 @@ final readonly class ContentType
             $presented[$field] = Value::plain($record->{$this->fields[$field]});
         }
 
+        if ($this->extra !== []) {
+            $presented['meta'] = $this->presentExtra($record);
+        }
+
         if ($this->status !== null) {
             $presented['status'] = $record->{$this->status} ? 'published' : 'draft';
         }
@@ -222,6 +231,35 @@ final readonly class ContentType
         }
 
         return $presented;
+    }
+
+    /**
+     * The site's own fields, in Ruk Lab's request/response vocabulary. A
+     * relation comes back as the value of its `matchColumn` — the name
+     * somebody would recognise — never as this site's internal id.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentExtra(Model $record): array
+    {
+        $presented = [];
+
+        foreach ($this->extra as $name => $field) {
+            $presented[$name] = $this->presentExtraValue($field, $record->{$field->column});
+        }
+
+        return $presented;
+    }
+
+    private function presentExtraValue(ExtraField $field, mixed $raw): mixed
+    {
+        if ($field->type === ExtraFieldType::Relation && $raw !== null && $field->relatedModel !== null && $field->matchColumn !== null) {
+            $related = $field->relatedModel::query()->find($raw);
+
+            return $related?->{$field->matchColumn};
+        }
+
+        return Value::plain($raw);
     }
 
     /**
@@ -325,5 +363,86 @@ final readonly class ContentType
         }
 
         return $columns;
+    }
+
+    /**
+     * Turn the site's own custom fields, given by name under `meta`, into
+     * columns. A relation arrives as the value of its `matchColumn` — a
+     * category by its name, not this site's internal id — and is resolved
+     * here or refused by the value that did not match anything, the same way
+     * `toColumns` refuses a status nothing here can place.
+     *
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    public function extraColumns(array $values): array
+    {
+        $columns = [];
+
+        foreach ($values as $name => $value) {
+            $field = $this->extra[$name] ?? null;
+
+            if ($field === null) {
+                throw ConnectorException::notWritable((string) $name, [...$this->writable(), ...$this->readableExtra()]);
+            }
+
+            $columns[$field->column] = $this->resolveExtraValue($field, $value);
+        }
+
+        return $columns;
+    }
+
+    private function resolveExtraValue(ExtraField $field, mixed $value): mixed
+    {
+        if ($field->type === ExtraFieldType::Relation) {
+            $match = $field->relatedModel::query()->where($field->matchColumn, $value)->first();
+
+            if ($match === null) {
+                throw ConnectorException::unknownRelationValue($field->label, (string) $value);
+            }
+
+            return $match->getKey();
+        }
+
+        if ($field->type === ExtraFieldType::Boolean) {
+            return (bool) $value;
+        }
+
+        if ($field->type === ExtraFieldType::Number) {
+            return is_numeric($value) ? $value + 0 : $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Names of this type's extra fields, the way `readable`/`writable` list
+     * the mapped ones.
+     *
+     * @return array<int, string>
+     */
+    public function readableExtra(): array
+    {
+        return array_keys($this->extra);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function requiredExtraFields(): array
+    {
+        return array_keys(array_filter($this->extra, fn (ExtraField $field): bool => $field->required));
+    }
+
+    /**
+     * Which required extra fields are missing from what was given. Checked
+     * only on create: a partial update is allowed to leave them as they are.
+     *
+     * @param  array<int, string>  $given
+     * @return array<int, string>
+     */
+    public function missingRequiredExtra(array $given): array
+    {
+        return array_values(array_diff($this->requiredExtraFields(), $given));
     }
 }
