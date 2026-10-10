@@ -62,4 +62,5 @@ namespace {
     require_once __DIR__.'/../src/Content/ExtraField.php';
     require_once __DIR__.'/../src/Content/ContentType.php';
     require_once __DIR__.'/../src/Redirects/RedirectRules.php';
+    require_once __DIR__.'/../src/Redirects/RedirectMap.php';
 }

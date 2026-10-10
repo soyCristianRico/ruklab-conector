@@ -10,6 +10,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // A site that declares a redirects table of its own does not need a
+        // second one next to it.
+        if (is_string(config('ruklab.redirects.model')) && config('ruklab.redirects.model') !== '') {
+            return;
+        }
+
         Schema::create('ruklab_redirects', function (Blueprint $table): void {
             $table->id();
             // Always a path on this site, tidied on the way in: leading slash,

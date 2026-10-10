@@ -138,7 +138,7 @@ final readonly class ContentService
         return [
             'before' => $before,
             'after' => $this->presentWithMedia($type, $record->refresh()),
-            'changed' => array_keys($columns),
+            'changed' => $type->fieldNamesFor(array_keys($columns)),
             'snapshot_id' => $snapshot,
         ];
     }

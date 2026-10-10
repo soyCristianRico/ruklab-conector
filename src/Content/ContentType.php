@@ -341,6 +341,35 @@ final readonly class ContentType
     }
 
     /**
+     * The inverse of `toColumns`: the names Ruk Lab uses for the fields that
+     * live in these columns. A site's own fields come back as `meta.<name>`,
+     * the same place `present` puts them, so a name returned here can be
+     * looked up in a presented record as it is. A column this type does not
+     * map is kept under its own name rather than dropped.
+     *
+     * @param  array<int, string>  $columns
+     * @return array<int, string>
+     */
+    public function fieldNamesFor(array $columns): array
+    {
+        $names = [];
+
+        foreach ($this->fields as $field => $column) {
+            $names[$column] ??= $field;
+        }
+
+        foreach ($this->extra as $name => $field) {
+            $names[$field->column] ??= 'meta.'.$name;
+        }
+
+        if ($this->status !== null) {
+            $names[$this->status] = 'status';
+        }
+
+        return array_map(fn (string $column): string => $names[$column] ?? $column, $columns);
+    }
+
+    /**
      * Turn Ruk Lab's vocabulary back into this site's columns.
      *
      * @param  array<string, mixed>  $values

@@ -29,15 +29,21 @@ final class RedirectRules
      */
     public const CODES = [301, 302, 307, 410, 451];
 
-    public const CODES_WITH_TARGET = [301, 302, 307];
+    /**
+     * The codes that answer on the spot instead of sending anywhere.
+     */
+    public const CODES_WITHOUT_TARGET = [410, 451];
 
-    public static function code(mixed $code): int
+    /**
+     * @param  array<int, int>  $allowed  What the site's table can hold, when it is not this package's own.
+     */
+    public static function code(mixed $code, array $allowed = self::CODES): int
     {
         $code = (int) $code;
 
-        if (! in_array($code, self::CODES, true)) {
+        if (! in_array($code, $allowed, true)) {
             throw new ConnectorException(
-                sprintf('El código %d no vale aquí. Usa uno de: %s.', $code, implode(', ', self::CODES)),
+                sprintf('El código %d no vale aquí. Usa uno de: %s.', $code, implode(', ', $allowed)),
                 422,
             );
         }
@@ -101,7 +107,7 @@ final class RedirectRules
     {
         $to = trim($to);
 
-        if (! in_array($code, self::CODES_WITH_TARGET, true)) {
+        if (in_array($code, self::CODES_WITHOUT_TARGET, true)) {
             // A destination alongside a 410 would be stored and never used,
             // which reads later as a redirect that mysteriously does not
             // redirect.

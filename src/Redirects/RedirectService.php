@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Ruklab\Connector\Redirects;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Ruklab\Connector\Support\ConnectorException;
 
 /**
@@ -15,9 +17,28 @@ use Ruklab\Connector\Support\ConnectorException;
  */
 final readonly class RedirectService
 {
+    private RedirectMap $map;
+
+    public function __construct(?RedirectMap $map = null)
+    {
+        $this->map = $map ?? RedirectMap::fromConfig();
+    }
+
     public function available(): bool
     {
         return (bool) config('ruklab.redirects.enabled', true);
+    }
+
+    /**
+     * Who holds the redirects, as `info` reports it.
+     */
+    public function manager(): ?string
+    {
+        if (! $this->available()) {
+            return null;
+        }
+
+        return $this->map->isSiteTable() ? 'site' : 'ruklab';
     }
 
     /**
@@ -27,16 +48,19 @@ final readonly class RedirectService
     {
         $this->requireAvailable();
 
-        $query = Redirect::query()->orderByDesc('id');
+        $query = $this->query()->orderByDesc((new ($this->map->model))->getKeyName());
 
         if ($search !== null && trim($search) !== '') {
             $term = '%'.trim($search).'%';
-            $query->where(function ($query) use ($term): void {
-                $query->where('source', 'like', $term)->orWhere('target', 'like', $term);
+            $source = $this->map->column('source');
+            $target = $this->map->column('target');
+
+            $query->where(function ($query) use ($term, $source, $target): void {
+                $query->where($source, 'like', $term)->orWhere($target, 'like', $term);
             });
         }
 
-        return $query->get()->map(fn (Redirect $redirect): array => $redirect->present())->all();
+        return $query->get()->map(fn (Model $redirect): array => $this->map->present($redirect))->all();
     }
 
     /**
@@ -47,21 +71,15 @@ final readonly class RedirectService
         $this->requireAvailable();
         $this->requireWrites();
 
-        $code = RedirectRules::code($code);
-        $source = RedirectRules::source($from, $this->host());
+        $code = RedirectRules::code($code, $this->map->codes);
+        $source = $this->map->source(RedirectRules::source($from, $this->host()));
         $target = RedirectRules::target($to, $code);
 
-        RedirectRules::guardConflicts($source, $target, $this->all());
+        RedirectRules::guardConflicts($source, $target, $this->map->exactOnly($this->all()));
 
-        $redirect = Redirect::query()->create([
-            'source' => $source,
-            'target' => $target,
-            'code' => $code,
-            'is_active' => true,
-            'hits' => 0,
-        ]);
+        $redirect = $this->query()->create($this->map->newRow($source, $target, $code));
 
-        return $redirect->present();
+        return $this->map->present($redirect->refresh());
     }
 
     /**
@@ -73,36 +91,41 @@ final readonly class RedirectService
         $this->requireAvailable();
         $this->requireWrites();
 
-        $redirect = Redirect::query()->find($id);
+        $redirect = $this->query()->find($id);
 
-        if (! $redirect instanceof Redirect) {
+        if (! $redirect instanceof Model) {
             throw ConnectorException::notFound('redirección', $id);
         }
 
-        $before = $redirect->present();
+        $before = $this->map->present($redirect);
         $changes = [];
 
         if (($values['status'] ?? null) !== null) {
             $changes['status'] = RedirectRules::status($values['status']);
-            $redirect->is_active = $changes['status'] === 'active';
+            $redirect->{$this->map->column('active')} = $changes['status'] === 'active';
         }
 
         $code = ($values['code'] ?? null) !== null
-            ? RedirectRules::code($values['code'])
-            : (int) $redirect->code;
+            ? RedirectRules::code($values['code'], $this->map->codes)
+            : $before['code'];
 
         if (($values['code'] ?? null) !== null) {
             $changes['code'] = $code;
-            $redirect->code = $code;
+            $redirect->{$this->map->column('code')} = $code;
         }
 
         if (($values['to'] ?? null) !== null) {
             $target = RedirectRules::target((string) $values['to'], $code);
 
-            RedirectRules::guardConflicts($before['from'], $target, $this->all(), (int) $redirect->getKey());
+            RedirectRules::guardConflicts(
+                $before['from'],
+                $target,
+                $this->map->exactOnly($this->all()),
+                (int) $redirect->getKey(),
+            );
 
             $changes['to'] = $target;
-            $redirect->target = $target;
+            $redirect->{$this->map->column('target')} = $this->map->target($target);
         }
 
         if ($changes === []) {
@@ -140,7 +163,7 @@ final readonly class RedirectService
 
         return [
             'before' => $before,
-            'after' => $redirect->refresh()->present(),
+            'after' => $this->map->present($redirect->refresh()),
             'changed' => array_keys($changes),
         ];
     }
@@ -153,7 +176,10 @@ final readonly class RedirectService
      */
     public function match(string $path): ?Redirect
     {
-        if (! $this->available()) {
+        // A site with a table of its own serves it with its own middleware,
+        // which knows its match types and its cache. Answering here as well
+        // would be a second opinion about the same URL.
+        if (! $this->available() || $this->map->isSiteTable()) {
             return null;
         }
 
@@ -163,6 +189,14 @@ final readonly class RedirectService
             ->where('is_active', true)
             ->get()
             ->first(fn (Redirect $redirect): bool => RedirectRules::samePath($redirect->source, $tidied));
+    }
+
+    /**
+     * @return Builder<Model>
+     */
+    private function query(): Builder
+    {
+        return (new ($this->map->model))->newQuery();
     }
 
     private function host(): string

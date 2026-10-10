@@ -7,6 +7,7 @@ namespace Ruklab\Connector;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Support\ServiceProvider;
 use Ruklab\Connector\Http\HandleRedirects;
+use Ruklab\Connector\Redirects\RedirectMap;
 
 final class ConnectorServiceProvider extends ServiceProvider
 {
@@ -48,6 +49,12 @@ final class ConnectorServiceProvider extends ServiceProvider
         }
 
         if (! config('ruklab.redirects.enabled', true)) {
+            return;
+        }
+
+        // The site already serves the table it declared, with its own
+        // middleware, ahead of routing and with its own match types.
+        if (RedirectMap::fromConfig()->isSiteTable()) {
             return;
         }
 

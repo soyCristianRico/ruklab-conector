@@ -29,26 +29,6 @@ final class Redirect extends Model
     protected $fillable = ['source', 'target', 'code', 'is_active', 'hits', 'last_used_at'];
 
     /**
-     * The shape the platform reads, which is the same one the WordPress
-     * connector answers with. A tool should not be able to tell which kind of
-     * site replied.
-     *
-     * @return array<string, mixed>
-     */
-    public function present(): array
-    {
-        return [
-            'id' => (int) $this->getKey(),
-            'from' => $this->source,
-            'to' => (string) $this->target,
-            'code' => (int) $this->code,
-            'status' => $this->is_active ? 'active' : 'inactive',
-            'hits' => (int) $this->hits,
-            'manager' => 'ruklab',
-        ];
-    }
-
-    /**
      * @return array<string, string>
      */
     protected function casts(): array

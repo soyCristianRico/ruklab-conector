@@ -152,10 +152,29 @@ return [
     | rutas— y entonces el conector responde que no las lleva, en vez de
     | competir con lo que ya hay.
     |
+    | Una web que ya tiene su propia tabla de redirecciones, con su panel y su
+    | middleware, declara aquí su modelo. El conector lee y escribe esa tabla
+    | en vez de traer otra, que serían dos listas distintas de lo mismo: lo
+    | creado desde Ruk Lab no saldría en el panel de la web y viceversa. Con
+    | `model` declarado el conector no crea `ruklab_redirects` ni registra su
+    | middleware; la web sigue sirviendo sus redirecciones como siempre.
+    |
+    |   model     Modelo de la web.
+    |   fields    Nombre de Ruk Lab => columna: source, target, code, active,
+    |             hits y, opcional, match (tipo de coincidencia).
+    |   codes     Códigos que la tabla admite (por defecto 301, 302, 307,
+    |             410 y 451).
+    |   defaults  Columnas de una fila nueva para las que Ruk Lab no tiene
+    |             palabra, por ejemplo match_type o preserve_query.
+    |
     */
 
     'redirects' => [
         'enabled' => env('RUKLAB_CONNECTOR_REDIRECTS', true),
+        'model' => null,
+        'fields' => [],
+        'codes' => null,
+        'defaults' => [],
     ],
 
     /*

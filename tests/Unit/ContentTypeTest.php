@@ -430,3 +430,31 @@ describe('ContentType extra fields', function () {
         });
     });
 });
+
+describe('ContentType fieldNamesFor', function () {
+    it('names a changed column by the field Ruk Lab knows it as', function () {
+        $tipo = tipoArticulo(['fields' => ['title' => 'title', 'excerpt' => 'hero_text', 'meta_title' => 'seo_title']]);
+
+        expect($tipo->fieldNamesFor(['hero_text', 'seo_title', 'title']))
+            ->toBe(['excerpt', 'meta_title', 'title']);
+    });
+
+    it('names a site own field under meta, where a presented record keeps it', function () {
+        $tipo = ContentType::make(
+            model: 'App\Models\Ficha',
+            label: 'Fichas',
+            fields: ['excerpt' => 'hero_text'],
+            extra: ['impact_heading' => ExtraField::text(column: 'impact_heading', label: 'Título')],
+        );
+
+        expect($tipo->fieldNamesFor(['impact_heading']))->toBe(['meta.impact_heading']);
+    });
+
+    it('calls the status column status, whatever it is named here', function () {
+        expect(tipoArticulo()->fieldNamesFor(['is_active']))->toBe(['status']);
+    });
+
+    it('keeps a column it does not map under its own name', function () {
+        expect(tipoArticulo()->fieldNamesFor(['unmapped']))->toBe(['unmapped']);
+    });
+});

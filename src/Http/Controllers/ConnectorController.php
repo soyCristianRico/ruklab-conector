@@ -49,7 +49,7 @@ final class ConnectorController
             'types' => $this->registry->describe(),
             'menus' => $this->menus->available(),
             'redirects' => $this->redirects->available(),
-            'redirects_manager' => $this->redirects->available() ? 'ruklab' : null,
+            'redirects_manager' => $this->redirects->manager(),
         ]);
     }
 
