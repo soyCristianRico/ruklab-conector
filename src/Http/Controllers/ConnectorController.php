@@ -133,7 +133,7 @@ final class ConnectorController
     public function redirects(Request $request): JsonResponse
     {
         return $this->answer(fn (): array => [
-            'manager' => 'ruklab',
+            'manager' => $this->redirects->manager(),
             'redirects' => $this->redirects->all($request->query('search')),
         ]);
     }
